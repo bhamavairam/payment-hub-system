@@ -1,0 +1,41 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: sarvatra-integration-service
+  
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ms2-consumer-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  
+  cloud:
+    vault:
+      enabled: false
+
+# Sarvatra Configuration
+sarvatra:
+  switch:
+    url: http://localhost:8082/api/transaction  # Replace with real URL
+    timeout: 30000  # 30 seconds
+    retry:
+      max-attempts: 3
+      delay: 2000  # 2 seconds
+
+kafka:
+  topics:
+    from-ms1: internal-transactions
+    to-ms1: internal-responses
+
+logging:
+  level:
+    com.paymenthub: DEBUG
+    reactor.netty: DEBUG
