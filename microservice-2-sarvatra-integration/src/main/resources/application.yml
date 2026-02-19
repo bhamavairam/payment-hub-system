@@ -35,7 +35,10 @@ kafka:
     from-ms1: internal-transactions
     to-ms1: internal-responses
 
+# Logging (controlled by logback-spring.xml)
 logging:
+  config: classpath:logback-spring.xml
   level:
-    com.paymenthub: DEBUG
-    reactor.netty: DEBUG
+    com.paymenthub.ms2: DEBUG
+    org.springframework: INFO
+    reactor.netty: INFO

@@ -58,6 +58,10 @@ encryption:
 transaction:
   timeout-ms: 28000
 
+# Logging (controlled by logback-spring.xml)
 logging:
+  config: classpath:logback-spring.xml
   level:
-    com.paymenthub: DEBUG
+    com.paymenthub.ms1: DEBUG
+    org.springframework: INFO
+    org.hibernate: WARN

@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- PROPERTIES -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <property name="LOG_PATH" value="logs"/>
+    <property name="LOG_FILE" value="ms2-sarvatra-integration"/>
+    
+    <property name="CONSOLE_LOG_PATTERN" 
+              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+    
+    <property name="FILE_LOG_PATTERN" 
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%t] %-40.40logger{39} : %m%n%wEx"/>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- CONSOLE APPENDER -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- FILE APPENDER - ALL LOGS -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <appender name="FILE_ALL" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE}.log</file>
+        
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/${LOG_FILE}-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- FILE APPENDER - SARVATRA COMMUNICATION -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <appender name="SARVATRA_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/sarvatra-communication.log</file>
+        
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/sarvatra-communication-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- FILE APPENDER - MOCK SARVATRA (Separate) -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <appender name="MOCK_SARVATRA_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/sarvatra-mock.log</file>
+        
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/sarvatra-mock-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- FILE APPENDER - RABBITMQ -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <appender name="RABBITMQ_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE}-rabbitmq.log</file>
+        
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/${LOG_FILE}-rabbitmq-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- FILE APPENDER - ERROR LOGS -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${LOG_FILE}-errors.log</file>
+        
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/archive/${LOG_FILE}-errors-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- ASYNC APPENDERS -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="FILE_ALL"/>
+    </appender>
+
+    <appender name="ASYNC_SARVATRA" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="SARVATRA_FILE"/>
+    </appender>
+
+    <appender name="ASYNC_MOCK" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>256</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="MOCK_SARVATRA_FILE"/>
+    </appender>
+
+    <appender name="ASYNC_RABBITMQ" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>256</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="RABBITMQ_FILE"/>
+    </appender>
+
+    <appender name="ASYNC_ERROR" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>256</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="ERROR_FILE"/>
+    </appender>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- LOGGERS -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    
+    <!-- MS2 Application -->
+    <logger name="com.paymenthub.ms2" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="ASYNC_ERROR"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Sarvatra Communication -->
+    <logger name="com.paymenthub.ms2.service.RequestListenerService" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC_SARVATRA"/>
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Mock Sarvatra (Separate Log File) -->
+    <logger name="com.paymenthub.ms2.controller.MockSarvatraController" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_MOCK"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- RabbitMQ -->
+    <logger name="com.paymenthub.ms2.service.ResponsePublisherService" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC_RABBITMQ"/>
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Spring Framework -->
+    <logger name="org.springframework" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- RabbitMQ -->
+    <logger name="org.springframework.amqp" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_RABBITMQ"/>
+    </logger>
+
+    <!-- WebClient -->
+    <logger name="reactor.netty" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_FILE"/>
+    </logger>
+
+    <!-- Root -->
+    <root level="INFO">
+        <appender-ref ref="ASYNC_FILE"/>
+        <appender-ref ref="ASYNC_ERROR"/>
+    </root>
+
+</configuration>
