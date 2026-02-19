@@ -4,41 +4,32 @@ server:
 spring:
   application:
     name: sarvatra-integration-service
-  
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: ms2-consumer-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "*"
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-  
-  cloud:
-    vault:
-      enabled: false
 
-# Sarvatra Configuration
-sarvatra:
-  switch:
-    url: http://localhost:8082/api/transaction  # Replace with real URL
-    timeout: 30000  # 30 seconds
-    retry:
-      max-attempts: 3
-      delay: 2000  # 2 seconds
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin123
+    listener:
+      simple:
+        acknowledge-mode: auto
+        prefetch: 50
 
-kafka:
-  topics:
-    from-ms1: internal-transactions
-    to-ms1: internal-responses
+rabbitmq:
+  exchange: payment.hub.exchange
 
-# Logging (controlled by logback-spring.xml)
+  queues:
+    # MS2 listens on this queue (router sends here)
+    from-router: ms2.transaction.request
+
+    # MS2 sends response back to MS1 on this queue
+    to-ms1: ms1.transaction.response
+
+  routing-keys:
+    from-router: ms2.txn.request
+    to-ms1:      ms1.txn.response
+
 logging:
-  config: classpath:logback-spring.xml
   level:
     com.paymenthub.ms2: DEBUG
     org.springframework: INFO
-    reactor.netty: INFO

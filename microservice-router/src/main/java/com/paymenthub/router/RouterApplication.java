@@ -1,11 +1,11 @@
-package com.paymenthub.ms2;
+package com.paymenthub.router;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class SarvatraIntegrationApplication {
+public class RouterApplication {
     public static void main(String[] args) {
-        SpringApplication.run(SarvatraIntegrationApplication.class, args);
+        SpringApplication.run(RouterApplication.class, args);
     }
 }

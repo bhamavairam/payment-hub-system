@@ -1,0 +1,35 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: ms3-stub-service
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin123
+    listener:
+      simple:
+        acknowledge-mode: auto
+        prefetch: 50
+
+rabbitmq:
+  exchange: payment.hub.exchange
+
+  queues:
+    # MS3 listens on this queue (router sends here for VISA/MC)
+    from-router: ms3.transaction.request
+
+    # MS3 sends response back to MS1 on this queue
+    to-ms1: ms1.transaction.response    # same queue as MS2 — MS1 listens here
+
+  routing-keys:
+    from-router: ms3.txn.request
+    to-ms1:      ms1.txn.response       # same routing key as MS2
+
+logging:
+  level:
+    com.paymenthub.ms3: DEBUG
+    org.springframework: INFO

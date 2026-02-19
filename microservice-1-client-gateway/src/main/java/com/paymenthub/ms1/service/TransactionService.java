@@ -1,10 +1,7 @@
 package com.paymenthub.ms1.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.paymenthub.common.dto.RabbitMessage;
-import com.paymenthub.common.dto.TransactionRequest;
 import com.paymenthub.common.dto.TransactionResponse;
 import com.paymenthub.ms1.entity.ClientTransaction;
 import com.paymenthub.ms1.repository.ClientTransactionRepository;
@@ -44,173 +41,131 @@ public class TransactionService {
     @Value("${transaction.timeout-ms:28000}")
     private long timeoutMs;
 
-    // In-memory map: correlationId → waiting CompletableFuture
-    // This is how MS1 knows which response belongs to which request
-    private final Map<String, CompletableFuture<TransactionResponse>> 
+    // correlationId → waiting thread
+    private final Map<String, CompletableFuture<TransactionResponse>>
             pendingRequests = new ConcurrentHashMap<>();
 
-    private final ObjectMapper objectMapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ─────────────────────────────────────────────────────────────
-    // MAIN METHOD: Called by Controller for each terminal request
+    // CRITICAL PATH — everything here must be fast
+    // Target: decrypt + send to MQ in under 20ms
     // ─────────────────────────────────────────────────────────────
-    public TransactionResponse processTransaction(String encryptedPayload) 
-            throws Exception {
-        
+    public TransactionResponse processTransaction(
+            String encryptedPayload,
+            String source,
+            String destination) throws Exception {
+
         long startTime = System.currentTimeMillis();
 
-        // ── STEP 1: DECRYPT (10ms) ────────────────────────────
-        log.info("🔓 Decrypting terminal request...");
+        // ── Step 1: Decrypt (~5ms) ────────────────────────────────
         String plainJson = AESUtil.decrypt(encryptedPayload, clientAesKey);
-        log.debug("Plain JSON: {}", plainJson);
+        log.info("🔓 Decrypted in {}ms | src={} dest={}",
+                System.currentTimeMillis() - startTime, source, destination);
 
-        // ── STEP 2: PARSE JSON ────────────────────────────────
-        TransactionRequest request = objectMapper.readValue(
-                plainJson, TransactionRequest.class);
-
-        // Generate correlationId if not provided
-        if (request.getCorrelationId() == null || 
-            request.getCorrelationId().isEmpty()) {
-            request.setCorrelationId("TXN-" + UUID.randomUUID()
-                    .toString().substring(0, 8).toUpperCase());
-        }
-        String correlationId = request.getCorrelationId();
         
-        log.info("📥 Transaction: {} | Terminal: {} | Type: {} | Amount: {}", 
-                correlationId, request.getTerminalId(), 
-                request.getTxnType(), request.getAmount());
+        log.info("Decrypted Json", plainJson);
+        
+        // ── Step 2: Read field "11" (STAN) for correlationId ─────
+        // Only reading one field — not validating anything
+        @SuppressWarnings("unchecked")
+        Map<String, String> isoFields = objectMapper.readValue(
+                plainJson, Map.class);
 
-        // ── STEP 3: REGISTER FUTURE (before parallel ops) ────
-        // Register FIRST so response is never missed!
-        CompletableFuture<TransactionResponse> responseFuture = 
+        String stan = isoFields.get("11");
+        String correlationId = (stan != null && !stan.isBlank())
+                ? "TXN-" + stan
+                : "TXN-" + UUID.randomUUID().toString()
+                        .substring(0, 8).toUpperCase();
+
+        log.info("📥 {} | MTI={} | Terminal={} | Dest={}",
+                correlationId,
+                isoFields.get("0"),
+                isoFields.get("41"),
+                destination);
+
+        // ── Step 3: Register future BEFORE sending ────────────────
+        CompletableFuture<TransactionResponse> responseFuture =
                 new CompletableFuture<>();
         pendingRequests.put(correlationId, responseFuture);
 
-        // ── STEP 4: PARALLEL - DB SAVE + RABBITMQ SEND ───────
-        // Both operations run simultaneously!
-        log.info("⚡ Starting parallel DB save + RabbitMQ send...");
+        // ── Step 4: Send to RabbitMQ immediately (~10ms) ──────────
+        // DB save runs fully in background — does NOT block MQ send
+        RabbitMessage message = RabbitMessage.builder()
+                .correlationId(correlationId)
+                .plainJsonPayload(plainJson)
+                .source(source)
+                .destination(destination)
+                .timestamp(System.currentTimeMillis())
+                .build();
 
-        CompletableFuture<Void> dbSave = saveToDatabase(request, 
-                                                         encryptedPayload);
-        CompletableFuture<Void> mqSend = sendToRabbitMQ(correlationId, 
-                                                          plainJson);
+        rabbitTemplate.convertAndSend(exchange, toMs2RoutingKey, message);
+        log.info("📤 Sent to MQ in {}ms | {}",
+                System.currentTimeMillis() - startTime, correlationId);
 
-        // Wait for BOTH to complete
-        CompletableFuture.allOf(dbSave, mqSend).get(5, TimeUnit.SECONDS);
+        // ── Step 5: DB save fires in background ───────────────────
+        // Client does NOT wait for this
+        saveToDatabase(correlationId, isoFields, encryptedPayload);
 
-        log.info("✅ DB saved + MQ sent in {}ms", 
-                System.currentTimeMillis() - startTime);
-
-        // ── STEP 5: WAIT FOR SARVATRA RESPONSE ───────────────
-        log.info("⏳ Waiting for Sarvatra response... [{}]", correlationId);
-        
+        // ── Step 6: Wait for MS2/MS3 response ─────────────────────
+        log.info("⏳ Waiting for response [{}]", correlationId);
         try {
             TransactionResponse response = responseFuture.get(
                     timeoutMs, TimeUnit.MILLISECONDS);
-            
-            long totalTime = System.currentTimeMillis() - startTime;
-            log.info("✅ Response received in {}ms | Status: {}", 
-                    totalTime, response.getStatus());
 
+            log.info("✅ TOTAL {}ms | {} | {}",
+                    System.currentTimeMillis() - startTime,
+                    correlationId,
+                    response.getStatus());
             return response;
 
         } catch (java.util.concurrent.TimeoutException e) {
-            // Clean up if timeout
             pendingRequests.remove(correlationId);
-            
-            log.error("⏱️ TIMEOUT after {}ms for {}", 
+            log.error("⏱ TIMEOUT {}ms | {}",
                     System.currentTimeMillis() - startTime, correlationId);
-            
-            // Update DB to TIMEOUT
-            repository.updateStatusAndResponse(correlationId, "TIMEOUT", 
-                    "Transaction timed out");
-            
+            repository.updateStatusAndResponse(
+                    correlationId, "TIMEOUT", "Transaction timed out");
             return TransactionResponse.builder()
                     .correlationId(correlationId)
                     .status("TIMEOUT")
                     .responseCode("91")
-                    .responseMessage("Transaction timeout - Please try again")
+                    .responseMessage("Timeout - Please try again")
                     .timestamp(System.currentTimeMillis())
                     .build();
         }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // ASYNC: Save to database (runs in parallel)
-    // ─────────────────────────────────────────────────────────────
+    // ── Fully background — client never waits for this ────────────
     @Async("taskExecutor")
-    public CompletableFuture<Void> saveToDatabase(TransactionRequest request, 
-                                                   String encryptedPayload) {
+    public void saveToDatabase(
+            String correlationId,
+            Map<String, String> isoFields,
+            String encryptedPayload) {
         try {
-            ClientTransaction transaction = ClientTransaction.builder()
-                    .correlationId(request.getCorrelationId())
-                    .terminalId(request.getTerminalId())
-                    .txnType(request.getTxnType())
-                    .amount(request.getAmount())
-                    .cardNumber(maskCard(request.getCardNumber()))
+            ClientTransaction txn = ClientTransaction.builder()
+                    .correlationId(correlationId)
+                    .terminalId(isoFields.get("41"))
+                    .txnType(isoFields.get("36"))
                     .status("PENDING")
                     .requestPayload(encryptedPayload)
                     .build();
-
-            repository.save(transaction);
-            log.debug("💾 DB saved: {}", request.getCorrelationId());
-            
-            return CompletableFuture.completedFuture(null);
-
+            repository.save(txn);
+            log.debug("💾 DB saved: {}", correlationId);
         } catch (Exception e) {
-            log.error("❌ DB save failed: {}", 
-                    request.getCorrelationId(), e);
-            return CompletableFuture.failedFuture(e);
+            log.error("❌ DB save failed: {}", correlationId, e);
         }
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // ASYNC: Send to RabbitMQ (runs in parallel with DB save)
-    // ─────────────────────────────────────────────────────────────
-    @Async("taskExecutor")
-    public CompletableFuture<Void> sendToRabbitMQ(String correlationId, 
-                                                    String plainJson) {
-        try {
-            RabbitMessage message = RabbitMessage.builder()
-                    .correlationId(correlationId)
-                    .plainJsonPayload(plainJson)
-                    .timestamp(System.currentTimeMillis())
-                    .build();
-
-            rabbitTemplate.convertAndSend(exchange, toMs2RoutingKey, message);
-            log.debug("📤 MQ sent: {}", correlationId);
-            
-            return CompletableFuture.completedFuture(null);
-
-        } catch (Exception e) {
-            log.error("❌ MQ send failed: {}", correlationId, e);
-            return CompletableFuture.failedFuture(e);
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // Called by ResponseListenerService when response arrives
-    // ─────────────────────────────────────────────────────────────
+    // ── Called by ResponseListenerService ─────────────────────────
     public void completeTransaction(TransactionResponse response) {
-        String correlationId = response.getCorrelationId();
-        
-        CompletableFuture<TransactionResponse> future = 
-                pendingRequests.remove(correlationId);
-
+        CompletableFuture<TransactionResponse> future =
+                pendingRequests.remove(response.getCorrelationId());
         if (future != null) {
             future.complete(response);
-            log.info("🎯 Completed waiting request: {}", correlationId);
+            log.info("🎯 Completed: {}", response.getCorrelationId());
         } else {
-            log.warn("⚠️ No waiting request found for: {}", correlationId);
+            log.warn("⚠️ No waiting request for: {}",
+                    response.getCorrelationId());
         }
-    }
-
-    // Mask card number for security
-    private String maskCard(String cardNumber) {
-        if (cardNumber == null || cardNumber.length() < 8) return cardNumber;
-        return cardNumber.substring(0, 4) + "****" + 
-               cardNumber.substring(cardNumber.length() - 4);
     }
 }

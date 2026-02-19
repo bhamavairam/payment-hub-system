@@ -32,6 +32,8 @@
         <module>common-library</module>
         <module>microservice-1-client-gateway</module>
         <module>microservice-2-sarvatra-integration</module>
+        <module>microservice-router</module>
+        <module>microservice-3-stub</module>
     </modules>
 
     <dependencyManagement>

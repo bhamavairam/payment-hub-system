@@ -1,0 +1,30 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: router-service
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin123
+
+rabbitmq:
+  exchange: payment.hub.exchange
+
+  queues:
+    from-ms1: router.transaction.request  # listens here (same as MS1 sends to)
+    to-ms2:   ms2.transaction.request     # forwards to MS2 here
+    to-ms3:   ms3.transaction.request     # forwards to MS3 here
+
+  routing-keys:
+    from-ms1: router.txn.request          # same as MS1 routing key
+    to-ms2:   ms2.txn.request
+    to-ms3:   ms3.txn.request
+
+logging:
+  level:
+    com.paymenthub.router: DEBUG
+    org.springframework: INFO

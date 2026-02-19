@@ -42,14 +42,19 @@ spring:
         acknowledge-mode: auto
         prefetch: 50
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
 rabbitmq:
   exchange: payment.hub.exchange
   queues:
-    to-ms2: ms2.transaction.request
+    to-ms2: router.transaction.request    # ← MS1 sends to ROUTER now
     from-ms2: ms1.transaction.response
     dead-letter: payment.dead.letter
   routing-keys:
-    to-ms2: ms2.txn.request
+    to-ms2: router.txn.request            # ← routing key for router queue
     from-ms2: ms1.txn.response
 
 encryption:
@@ -58,7 +63,9 @@ encryption:
 transaction:
   timeout-ms: 28000
 
-# Logging (controlled by logback-spring.xml)
+app:
+  session-ttl-seconds: 86400
+
 logging:
   config: classpath:logback-spring.xml
   level:

@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.io.Serializable;
 
 @Data
@@ -12,16 +11,12 @@ import java.io.Serializable;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RabbitMessage implements Serializable {
-    
+
     private static final long serialVersionUID = 1L;
-    
-    // Unique transaction ID (matches request and response)
+
     private String correlationId;
-    
-    // PLAIN JSON string of TransactionRequest
-    // MS1 → MS2: Plain JSON (no encryption between services)
     private String plainJsonPayload;
-    
-    // Message timestamp
+    private String source;       // ← NEW: e.g. "TERMINAL-001", "BANK001"
+    private String destination;  // ← NEW: "NPCI" → MS2, "VISA" → MS3
     private Long timestamp;
 }
