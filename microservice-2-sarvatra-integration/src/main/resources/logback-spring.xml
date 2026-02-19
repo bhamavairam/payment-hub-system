@@ -8,10 +8,10 @@
     <property name="LOG_FILE" value="ms2-sarvatra-integration"/>
     
     <property name="CONSOLE_LOG_PATTERN" 
-              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n"/>
     
     <property name="FILE_LOG_PATTERN" 
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%t] %-40.40logger{39} : %m%n%wEx"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%t] %-40.40logger{39} : %m%n"/>
 
     <!-- ═══════════════════════════════════════════════════════ -->
     <!-- CONSOLE APPENDER -->
@@ -62,7 +62,7 @@
     </appender>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- FILE APPENDER - MOCK SARVATRA (Separate) -->
+    <!-- FILE APPENDER - MOCK SARVATRA -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <appender name="MOCK_SARVATRA_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/sarvatra-mock.log</file>
@@ -159,49 +159,41 @@
     <!-- LOGGERS -->
     <!-- ═══════════════════════════════════════════════════════ -->
     
-    <!-- MS2 Application -->
     <logger name="com.paymenthub.ms2" level="DEBUG" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
         <appender-ref ref="ASYNC_ERROR"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
 
-    <!-- Sarvatra Communication -->
     <logger name="com.paymenthub.ms2.service.RequestListenerService" level="DEBUG" additivity="false">
         <appender-ref ref="ASYNC_SARVATRA"/>
         <appender-ref ref="ASYNC_FILE"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
 
-    <!-- Mock Sarvatra (Separate Log File) -->
     <logger name="com.paymenthub.ms2.controller.MockSarvatraController" level="INFO" additivity="false">
         <appender-ref ref="ASYNC_MOCK"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
 
-    <!-- RabbitMQ -->
     <logger name="com.paymenthub.ms2.service.ResponsePublisherService" level="DEBUG" additivity="false">
         <appender-ref ref="ASYNC_RABBITMQ"/>
         <appender-ref ref="ASYNC_FILE"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
 
-    <!-- Spring Framework -->
     <logger name="org.springframework" level="INFO" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
     </logger>
 
-    <!-- RabbitMQ -->
     <logger name="org.springframework.amqp" level="INFO" additivity="false">
         <appender-ref ref="ASYNC_RABBITMQ"/>
     </logger>
 
-    <!-- WebClient -->
     <logger name="reactor.netty" level="INFO" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
     </logger>
 
-    <!-- Root -->
     <root level="INFO">
         <appender-ref ref="ASYNC_FILE"/>
         <appender-ref ref="ASYNC_ERROR"/>

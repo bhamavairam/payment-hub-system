@@ -7,16 +7,16 @@
     <property name="LOG_PATH" value="logs"/>
     <property name="LOG_FILE" value="ms1-client-gateway"/>
     
-    <!-- Log pattern with colors for console -->
+    <!-- Simple console pattern (no colors) -->
     <property name="CONSOLE_LOG_PATTERN" 
-              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n"/>
     
-    <!-- Log pattern for file (no colors) -->
+    <!-- File pattern -->
     <property name="FILE_LOG_PATTERN" 
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%t] %-40.40logger{39} : %m%n%wEx"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%t] %-40.40logger{39} : %m%n"/>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- CONSOLE APPENDER (Optional - for development) -->
+    <!-- CONSOLE APPENDER -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -36,21 +36,16 @@
             <charset>UTF-8</charset>
         </encoder>
         
-        <!-- Rolling Policy -->
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <!-- Daily rollover -->
             <fileNamePattern>${LOG_PATH}/archive/${LOG_FILE}-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <!-- Each file max 10MB -->
             <maxFileSize>10MB</maxFileSize>
-            <!-- Keep 30 days -->
             <maxHistory>30</maxHistory>
-            <!-- Total size cap -->
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
     </appender>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- FILE APPENDER - TRANSACTION LOGS ONLY -->
+    <!-- FILE APPENDER - TRANSACTION LOGS -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <appender name="TRANSACTION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/${LOG_FILE}-transactions.log</file>
@@ -66,17 +61,10 @@
             <maxHistory>30</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
-        
-        <!-- Only log transaction-related messages -->
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>INFO</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>NEUTRAL</onMismatch>
-        </filter>
     </appender>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- FILE APPENDER - ERROR LOGS ONLY -->
+    <!-- FILE APPENDER - ERROR LOGS -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/${LOG_FILE}-errors.log</file>
@@ -93,14 +81,13 @@
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
         
-        <!-- Only ERROR and above -->
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>ERROR</level>
         </filter>
     </appender>
 
     <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- ASYNC APPENDER (Better Performance) -->
+    <!-- ASYNC APPENDERS -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
         <queueSize>512</queueSize>
@@ -124,7 +111,6 @@
     <!-- LOGGERS -->
     <!-- ═══════════════════════════════════════════════════════ -->
     
-    <!-- Your application packages -->
     <logger name="com.paymenthub.ms1" level="DEBUG" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
         <appender-ref ref="ASYNC_TRANSACTION"/>
@@ -132,22 +118,18 @@
         <appender-ref ref="CONSOLE"/>
     </logger>
 
-    <!-- Spring Framework - INFO level -->
     <logger name="org.springframework" level="INFO" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
     </logger>
 
-    <!-- Hibernate - WARN level -->
     <logger name="org.hibernate" level="WARN" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
     </logger>
 
-    <!-- RabbitMQ - INFO level -->
     <logger name="org.springframework.amqp" level="INFO" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
     </logger>
 
-    <!-- Root logger -->
     <root level="INFO">
         <appender-ref ref="ASYNC_FILE"/>
         <appender-ref ref="ASYNC_ERROR"/>
