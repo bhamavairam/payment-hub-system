@@ -1,0 +1,5 @@
+# Fraud Configuration
+fraud:
+  enabled: true         # Set to false to disable fraud checks
+  timeout-ms: 5000
+  default-decision: APPROVED

@@ -31,9 +31,9 @@
     <modules>
         <module>common-library</module>
         <module>microservice-1-client-gateway</module>
-        <module>microservice-2-sarvatra-integration</module>
         <module>microservice-router</module>
-        <module>microservice-3-stub</module>
+        <module>crypto-library</module>
+        <module>payment-hub-npci</module>
     </modules>
 
     <dependencyManagement>
@@ -45,6 +45,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            
             <dependency>
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcprov-jdk15on</artifactId>

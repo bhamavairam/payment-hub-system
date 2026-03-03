@@ -1,23 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- PROPERTIES -->
-    <!-- ═══════════════════════════════════════════════════════ -->
     <property name="LOG_PATH" value="logs"/>
-    <property name="LOG_FILE" value="ms1-client-gateway"/>
+    <property name="LOG_FILE" value="microservice-in-1"/>
     
-    <!-- Simple console pattern (no colors) -->
     <property name="CONSOLE_LOG_PATTERN" 
               value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n"/>
     
-    <!-- File pattern -->
     <property name="FILE_LOG_PATTERN" 
               value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%t] %-40.40logger{39} : %m%n"/>
 
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- CONSOLE APPENDER -->
-    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- CONSOLE -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>${CONSOLE_LOG_PATTERN}</pattern>
@@ -25,17 +18,13 @@
         </encoder>
     </appender>
 
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- FILE APPENDER - ALL LOGS -->
-    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- FILE - ALL LOGS -->
     <appender name="FILE_ALL" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/${LOG_FILE}.log</file>
-        
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
-        
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>${LOG_PATH}/archive/${LOG_FILE}-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>10MB</maxFileSize>
@@ -44,61 +33,29 @@
         </rollingPolicy>
     </appender>
 
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- FILE APPENDER - TRANSACTION LOGS -->
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <appender name="TRANSACTION_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_PATH}/${LOG_FILE}-transactions.log</file>
-        
-        <encoder>
-            <pattern>${FILE_LOG_PATTERN}</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-        
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/archive/${LOG_FILE}-transactions-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>10MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>1GB</totalSizeCap>
-        </rollingPolicy>
-    </appender>
-
-    <!-- ═══════════════════════════════════════════════════════ -->
-    <!-- FILE APPENDER - ERROR LOGS -->
-    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- FILE - ERRORS ONLY -->
     <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/${LOG_FILE}-errors.log</file>
-        
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
-        
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>${LOG_PATH}/archive/${LOG_FILE}-errors-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>10MB</maxFileSize>
             <maxHistory>90</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
-        
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>ERROR</level>
         </filter>
     </appender>
 
-    <!-- ═══════════════════════════════════════════════════════ -->
     <!-- ASYNC APPENDERS -->
-    <!-- ═══════════════════════════════════════════════════════ -->
     <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
         <queueSize>512</queueSize>
         <discardingThreshold>0</discardingThreshold>
         <appender-ref ref="FILE_ALL"/>
-    </appender>
-
-    <appender name="ASYNC_TRANSACTION" class="ch.qos.logback.classic.AsyncAppender">
-        <queueSize>512</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <appender-ref ref="TRANSACTION_FILE"/>
     </appender>
 
     <appender name="ASYNC_ERROR" class="ch.qos.logback.classic.AsyncAppender">
@@ -107,26 +64,14 @@
         <appender-ref ref="ERROR_FILE"/>
     </appender>
 
-    <!-- ═══════════════════════════════════════════════════════ -->
     <!-- LOGGERS -->
-    <!-- ═══════════════════════════════════════════════════════ -->
-    
-    <logger name="com.paymenthub.ms1" level="DEBUG" additivity="false">
+    <logger name="com.paymenthub.in1" level="DEBUG" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
-        <appender-ref ref="ASYNC_TRANSACTION"/>
         <appender-ref ref="ASYNC_ERROR"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
 
     <logger name="org.springframework" level="INFO" additivity="false">
-        <appender-ref ref="ASYNC_FILE"/>
-    </logger>
-
-    <logger name="org.hibernate" level="WARN" additivity="false">
-        <appender-ref ref="ASYNC_FILE"/>
-    </logger>
-
-    <logger name="org.springframework.amqp" level="INFO" additivity="false">
         <appender-ref ref="ASYNC_FILE"/>
     </logger>
 

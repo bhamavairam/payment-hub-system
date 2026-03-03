@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.amqp.core.*;
-import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -19,25 +18,45 @@ public class RabbitMQConfig {
     @Value("${rabbitmq.exchange}")
     private String exchange;
 
-    @Value("${rabbitmq.queues.from-ms1}")
-    private String fromMs1Queue;
+    // Input queue
+    @Value("${rabbitmq.queues.router-input}")
+    private String routerInputQueue;
 
-    @Value("${rabbitmq.queues.to-ms2}")
-    private String toMs2Queue;
+    // Output queues
+    @Value("${rabbitmq.queues.transform-npci}")
+    private String transformNpciQueue;
 
-    @Value("${rabbitmq.queues.to-ms3}")
-    private String toMs3Queue;
+    @Value("${rabbitmq.queues.transform-visa}")
+    private String transformVisaQueue;
 
-    @Value("${rabbitmq.routing-keys.from-ms1}")
-    private String fromMs1RoutingKey;
+    @Value("${rabbitmq.queues.transform-mastercard}")
+    private String transformMastercardQueue;
 
-    @Value("${rabbitmq.routing-keys.to-ms2}")
-    private String toMs2RoutingKey;
+    @Value("${rabbitmq.queues.fraud}")
+    private String fraudQueue;
 
-    @Value("${rabbitmq.routing-keys.to-ms3}")
-    private String toMs3RoutingKey;
+    @Value("${rabbitmq.queues.notification}")
+    private String notificationQueue;
 
-    // ── Exchange ──────────────────────────────────────────────────
+    // Routing keys
+    @Value("${rabbitmq.routing-keys.transform-npci}")
+    private String transformNpciKey;
+
+    @Value("${rabbitmq.routing-keys.transform-visa}")
+    private String transformVisaKey;
+
+    @Value("${rabbitmq.routing-keys.transform-mastercard}")
+    private String transformMastercardKey;
+
+    @Value("${rabbitmq.routing-keys.fraud}")
+    private String fraudKey;
+
+    @Value("${rabbitmq.routing-keys.notification}")
+    private String notificationKey;
+
+    // ═══════════════════════════════════════════════════════
+    // EXCHANGE
+    // ═══════════════════════════════════════════════════════
     @Bean
     public DirectExchange paymentExchange() {
         return ExchangeBuilder
@@ -46,53 +65,100 @@ public class RabbitMQConfig {
                 .build();
     }
 
-    // ── Queues ────────────────────────────────────────────────────
-
-    // Queue where MS1 publishes (router reads from here)
+    // ═══════════════════════════════════════════════════════
+    // QUEUES - INPUT
+    // ═══════════════════════════════════════════════════════
     @Bean
-    public Queue fromMs1Queue() {
-        return QueueBuilder.durable(fromMs1Queue).build();
+    public Queue routerInputQueue() {
+        return QueueBuilder
+                .durable(routerInputQueue)
+                .build();
     }
 
-    // Queue for MS2 (NPCI / RuPay)
+    // ═══════════════════════════════════════════════════════
+    // QUEUES - OUTPUT (Transform queues)
+    // ═══════════════════════════════════════════════════════
     @Bean
-    public Queue toMs2Queue() {
-        return QueueBuilder.durable(toMs2Queue).build();
+    public Queue transformNpciQueue() {
+        return QueueBuilder
+                .durable(transformNpciQueue)
+                .build();
     }
 
-    // Queue for MS3 (VISA / Mastercard)
     @Bean
-    public Queue toMs3Queue() {
-        return QueueBuilder.durable(toMs3Queue).build();
+    public Queue transformVisaQueue() {
+        return QueueBuilder
+                .durable(transformVisaQueue)
+                .build();
     }
 
-    // ── Bindings ──────────────────────────────────────────────────
+    @Bean
+    public Queue transformMastercardQueue() {
+        return QueueBuilder
+                .durable(transformMastercardQueue)
+                .build();
+    }
 
     @Bean
-    public Binding fromMs1Binding() {
+    public Queue fraudQueue() {
+        return QueueBuilder
+                .durable(fraudQueue)
+                .build();
+    }
+
+    @Bean
+    public Queue notificationQueue() {
+        return QueueBuilder
+                .durable(notificationQueue)
+                .build();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // BINDINGS - OUTPUT QUEUES
+    // ═══════════════════════════════════════════════════════
+    @Bean
+    public Binding transformNpciBinding() {
         return BindingBuilder
-                .bind(fromMs1Queue())
+                .bind(transformNpciQueue())
                 .to(paymentExchange())
-                .with(fromMs1RoutingKey);
+                .with(transformNpciKey);
     }
 
     @Bean
-    public Binding toMs2Binding() {
+    public Binding transformVisaBinding() {
         return BindingBuilder
-                .bind(toMs2Queue())
+                .bind(transformVisaQueue())
                 .to(paymentExchange())
-                .with(toMs2RoutingKey);
+                .with(transformVisaKey);
     }
 
     @Bean
-    public Binding toMs3Binding() {
+    public Binding transformMastercardBinding() {
         return BindingBuilder
-                .bind(toMs3Queue())
+                .bind(transformMastercardQueue())
                 .to(paymentExchange())
-                .with(toMs3RoutingKey);
+                .with(transformMastercardKey);
     }
 
-    // ── Message Converter ─────────────────────────────────────────
+    @Bean
+    public Binding fraudBinding() {
+        return BindingBuilder
+                .bind(fraudQueue())
+                .to(paymentExchange())
+                .with(fraudKey);
+    }
+
+    @Bean
+    public Binding notificationBinding() {
+        return BindingBuilder
+                .bind(notificationQueue())
+                .to(paymentExchange())
+                .with(notificationKey);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // MESSAGE CONVERTER
+    // ═══════════════════════════════════════════════════════
     @Bean
     public MessageConverter jsonMessageConverter() {
         ObjectMapper mapper = new ObjectMapper();
@@ -101,22 +167,13 @@ public class RabbitMQConfig {
         return new Jackson2JsonMessageConverter(mapper);
     }
 
-    // ── Rabbit Template ───────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+    // RABBIT TEMPLATE
+    // ═══════════════════════════════════════════════════════
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(jsonMessageConverter());
         return template;
-    }
-
-    // ── Listener Factory ──────────────────────────────────────────
-    @Bean
-    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
-            ConnectionFactory connectionFactory) {
-        SimpleRabbitListenerContainerFactory factory =
-                new SimpleRabbitListenerContainerFactory();
-        factory.setConnectionFactory(connectionFactory);
-        factory.setMessageConverter(jsonMessageConverter());
-        return factory;
     }
 }

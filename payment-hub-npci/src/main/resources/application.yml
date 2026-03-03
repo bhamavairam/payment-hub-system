@@ -1,0 +1,40 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: payment-hub-npci
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: admin123
+    listener:
+      simple:
+        acknowledge-mode: auto
+        prefetch: 30
+        concurrency: 10
+        max-concurrency: 30
+
+# RabbitMQ Configuration
+rabbitmq:
+  exchange: payment.hub.exchange
+  
+  queues:
+    npci-input: transform.npci.queue    # ✅ Must match Router exactly!
+  
+  routing-keys:
+    response: ms1.response.key          # ✅ Must match MS1 exactly!
+
+# NPCI Gateway Config
+npci:
+  gateway:
+    url: http://localhost:9090/mock-npci
+    timeout-ms: 200
+
+# Logging
+logging:
+  level:
+    com.paymenthub.npci: DEBUG
+    org.springframework.amqp: DEBUG    # ✅ Enable RabbitMQ debug logs

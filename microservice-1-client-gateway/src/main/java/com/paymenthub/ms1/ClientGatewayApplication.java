@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @SpringBootApplication
 @EnableAsync
 public class ClientGatewayApplication {
-    public static void main(String[] args) {
+	public static void main(String[] args) {
         SpringApplication.run(ClientGatewayApplication.class, args);
     }
 }

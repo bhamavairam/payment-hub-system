@@ -4,15 +4,10 @@ server:
     threads:
       max: 500
       min-spare: 50
-    connection-timeout: 35000
 
 spring:
   application:
-    name: client-gateway-service
-
-  cloud:
-    vault:
-      enabled: false
+    name: microservice-in-1
 
   datasource:
     url: jdbc:postgresql://localhost:5432/payment_hub_db
@@ -26,7 +21,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -37,38 +32,37 @@ spring:
     port: 5672
     username: admin
     password: admin123
+    publisher-confirm-type: correlated
+    publisher-returns: true
     listener:
       simple:
         acknowledge-mode: auto
         prefetch: 50
 
-  data:
-    redis:
-      host: localhost
-      port: 6379
-
+# ------------------------------------------------
+# Custom RabbitMQ Config (USED IN CODE)
+# ------------------------------------------------
 rabbitmq:
   exchange: payment.hub.exchange
   queues:
-    to-ms2: router.transaction.request    # ← MS1 sends to ROUTER now
-    from-ms2: ms1.transaction.response
-    dead-letter: payment.dead.letter
+    router: router.queue
+    from-ms2: ms1.response.queue   # ✅ THIS FIXES YOUR ERROR
   routing-keys:
-    to-ms2: router.txn.request            # ← routing key for router queue
-    from-ms2: ms1.txn.response
+    router: router.txn
+    response: ms1.response.key
 
+# JWT
+app:
+  jwt-secret: your-very-strong-256-bit-secret-key-change-this
+  jwt-expiration-seconds: 86400
+
+# Encryption
 encryption:
   client-aes-key: "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI="
 
-transaction:
-  timeout-ms: 28000
-
-app:
-  session-ttl-seconds: 86400
-
+# Logging
 logging:
-  config: classpath:logback-spring.xml
   level:
     com.paymenthub.ms1: DEBUG
     org.springframework: INFO
-    org.hibernate: WARN
+    org.springframework.amqp: DEBUG

@@ -1,88 +1,109 @@
 package com.paymenthub.ms1.service;
 
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.UUID;
+import java.security.Key;
+import java.util.Date;
 
 @Service
 @Slf4j
 public class SessionService {
 
-    private static final String SESSION_PREFIX = "session:";
+    @Value("${app.jwt-secret}")
+    private String jwtSecret;
 
-    @Autowired
-    private StringRedisTemplate redisTemplate;
+    @Value("${app.jwt-expiration-seconds}")
+    private long jwtExpirationSeconds;
 
-    @Value("${app.session-ttl-seconds:86400}")
-    private long sessionTtlSeconds;
+    private Key signingKey;
 
-    /**
-     * Step 1: Client calls /auth/token
-     * We create a sessionId, store it in Redis for 24 hours
-     * Return sessionId to client
-     */
-    public String createSession(String clientId) {
-    	System.out.println("Start printing");
-        String sessionId = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set(
-            SESSION_PREFIX + sessionId,
-            clientId,
-            Duration.ofSeconds(sessionTtlSeconds)
-        );
-        log.info("Session created | clientId={}", clientId);
-        return sessionId;
+    @PostConstruct
+    public void init() {
+        this.signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        log.info("🔐 JWT Service Initialized | Expiration={}s", jwtExpirationSeconds);
     }
 
     /**
-     * Step 2: Every transaction request calls this
-     * Checks if the sessionId exists in Redis
-     * Returns clientId if valid, throws exception if not
+     * Step 1: Create JWT token instead of Redis session
+     */
+    public String createSession(String clientId) {
+
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + jwtExpirationSeconds * 1000);
+
+        String token = Jwts.builder()
+                .setSubject(clientId)
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .compact();
+
+        log.info("✅ JWT created | clientId={} | expiresIn={}s",
+                clientId, jwtExpirationSeconds);
+
+        return token;
+    }
+
+    /**
+     * Validate JWT token
      */
     public String validateSession(String authorizationHeader) {
+
         if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            log.warn("❌ Missing Authorization header");
             throw new RuntimeException("Missing Authorization header");
         }
 
-        // Remove "Bearer " prefix if present
-        String sessionId = authorizationHeader.startsWith("Bearer ")
+        String token = authorizationHeader.startsWith("Bearer ")
                 ? authorizationHeader.substring(7).trim()
                 : authorizationHeader.trim();
 
-        String clientId = redisTemplate.opsForValue()
-                .get(SESSION_PREFIX + sessionId);
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(signingKey)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
 
-        if (clientId == null) {
-            throw new RuntimeException(
-                "Invalid or expired session. Call /api/v1/auth/token first.");
+            String clientId = claims.getSubject();
+
+            log.debug("✅ JWT valid | clientId={}", clientId);
+            return clientId;
+
+        } catch (ExpiredJwtException e) {
+            log.warn("❌ JWT expired");
+            throw new RuntimeException("Token expired. Call /auth/token again.");
+
+        } catch (JwtException e) {
+            log.warn("❌ Invalid JWT");
+            throw new RuntimeException("Invalid token");
         }
-
-        log.debug("Session valid | clientId={}", clientId);
-        return clientId;
     }
 
     /**
-     * Logout - deletes session from Redis immediately
+     * Logout (JWT is stateless — nothing to delete)
      */
     public void deleteSession(String authorizationHeader) {
-        String sessionId = authorizationHeader.startsWith("Bearer ")
-                ? authorizationHeader.substring(7).trim()
-                : authorizationHeader.trim();
-        redisTemplate.delete(SESSION_PREFIX + sessionId);
-        log.info("Session deleted | sessionId={}", sessionId);
+        log.info("🚪 JWT logout requested (stateless)");
     }
 
     /**
-     * Validate credentials before creating session.
-     * TODO: Replace with real DB check when you have a clients table.
-     * For now any non-empty values pass.
+     * Validate credentials (same as before)
      */
     public boolean validateCredentials(String clientId, String clientSecret) {
-        return clientId != null && !clientId.isBlank()
-            && clientSecret != null && !clientSecret.isBlank();
+
+        boolean valid = clientId != null && !clientId.isBlank()
+                && clientSecret != null && !clientSecret.isBlank();
+
+        if (!valid) {
+            log.warn("❌ Invalid credentials | clientId={}", clientId);
+        }
+
+        return valid;
     }
 }

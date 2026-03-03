@@ -1,0 +1,70 @@
+<project>
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.paymenthub</groupId>
+    <artifactId>payment-hub-npci</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+	<parent>
+	    <groupId>com.paymenthub</groupId>
+	    <artifactId>payment-hub-system</artifactId>
+	    <version>1.0.0</version>
+	</parent>
+
+    <dependencies>
+
+        <!-- Spring Boot -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- AMQP -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <!-- Redis -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- WebClient for NPCI -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+        
+        <dependency>
+		    <groupId>com.paymenthub</groupId>
+		    <artifactId>common-library</artifactId>
+		</dependency>
+
+        <!-- Common DTO module -->
+       <!-- <dependency>
+            <groupId>com.paymenthub</groupId>
+            <artifactId>payment-hub-common</artifactId>
+            <version>1.0.0</version>
+        </dependency>-->
+        <dependency>
+		    <groupId>jakarta.annotation</groupId>
+		    <artifactId>jakarta.annotation-api</artifactId>
+		    <version>2.1.1</version>
+		</dependency>
+
+       <dependency>
+       	<groupId>com.paymenthub</groupId>
+       	<artifactId>microservice-in-1</artifactId>
+       	<version>1.0.0</version>
+       </dependency>
+    </dependencies>
+</project>

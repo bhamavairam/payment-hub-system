@@ -18,94 +18,69 @@ public class RabbitMQConfig {
     @Value("${rabbitmq.exchange}")
     private String exchange;
 
-    @Value("${rabbitmq.queues.to-ms2}")
-    private String toMs2Queue;
+    @Value("${rabbitmq.queues.router}")
+    private String routerQueue;
 
     @Value("${rabbitmq.queues.from-ms2}")
-    private String fromMs2Queue;
+    private String responseQueue;
 
-    @Value("${rabbitmq.queues.dead-letter}")
-    private String deadLetterQueue;
+    @Value("${rabbitmq.routing-keys.router}")
+    private String routerRoutingKey;
 
-    @Value("${rabbitmq.routing-keys.to-ms2}")
-    private String toMs2RoutingKey;
+    @Value("${rabbitmq.routing-keys.response}")
+    private String responseRoutingKey;
 
-    @Value("${rabbitmq.routing-keys.from-ms2}")
-    private String fromMs2RoutingKey;
-
-    // ─── EXCHANGE ───────────────────────────────────────────
-    // One exchange handles ALL payment messages
+    // ═══════════════════════════════════════════════════════
+    // EXCHANGE
+    // ═══════════════════════════════════════════════════════
     @Bean
     public DirectExchange paymentExchange() {
         return ExchangeBuilder
                 .directExchange(exchange)
-                .durable(true)  // Survives RabbitMQ restart
+                .durable(true)
                 .build();
     }
 
-    // ─── QUEUES ─────────────────────────────────────────────
-
-    // Queue: MS1 → MS2 (send plain JSON to MS2)
+    // ═══════════════════════════════════════════════════════
+    // ROUTER QUEUE (MS1 → MS2)
+    // ═══════════════════════════════════════════════════════
     @Bean
-    public Queue toMs2Queue() {
+    public Queue routerQueue() {
         return QueueBuilder
-                .durable(toMs2Queue)
-                .withArgument("x-dead-letter-exchange", exchange)
-                .withArgument("x-dead-letter-routing-key", "dead.letter")
-                .withArgument("x-message-ttl", 30000)  // 30s TTL
-                .build();
-    }
-
-    // Queue: MS2 → MS1 (receive response from MS2)
-    @Bean
-    public Queue fromMs2Queue() {
-        return QueueBuilder
-                .durable(fromMs2Queue)
-                .withArgument("x-dead-letter-exchange", exchange)
-                .withArgument("x-dead-letter-routing-key", "dead.letter")
+                .durable(routerQueue)
                 .withArgument("x-message-ttl", 30000)
                 .build();
     }
 
-    // Queue: Dead letter (failed messages)
     @Bean
-    public Queue deadLetterQueue() {
+    public Binding routerBinding() {
+        return BindingBuilder
+                .bind(routerQueue())
+                .to(paymentExchange())
+                .with(routerRoutingKey);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // RESPONSE QUEUE (MS2 → MS1)  🔥 THIS WAS MISSING
+    // ═══════════════════════════════════════════════════════
+    @Bean
+    public Queue responseQueue() {
         return QueueBuilder
-                .durable(deadLetterQueue)
+                .durable(responseQueue)
                 .build();
     }
 
-    // ─── BINDINGS ────────────────────────────────────────────
-
-    // Bind MS2 request queue to exchange
     @Bean
-    public Binding toMs2Binding() {
+    public Binding responseBinding() {
         return BindingBuilder
-                .bind(toMs2Queue())
+                .bind(responseQueue())
                 .to(paymentExchange())
-                .with(toMs2RoutingKey);
+                .with(responseRoutingKey);
     }
 
-    // Bind MS1 response queue to exchange
-    @Bean
-    public Binding fromMs2Binding() {
-        return BindingBuilder
-                .bind(fromMs2Queue())
-                .to(paymentExchange())
-                .with(fromMs2RoutingKey);
-    }
-
-    // Bind dead letter queue
-    @Bean
-    public Binding deadLetterBinding() {
-        return BindingBuilder
-                .bind(deadLetterQueue())
-                .to(paymentExchange())
-                .with("dead.letter");
-    }
-
-    // ─── MESSAGE CONVERTER ───────────────────────────────────
-    // Convert Java objects to JSON automatically
+    // ═══════════════════════════════════════════════════════
+    // MESSAGE CONVERTER
+    // ═══════════════════════════════════════════════════════
     @Bean
     public MessageConverter jsonMessageConverter() {
         ObjectMapper mapper = new ObjectMapper();
@@ -114,7 +89,9 @@ public class RabbitMQConfig {
         return new Jackson2JsonMessageConverter(mapper);
     }
 
-    // ─── RABBIT TEMPLATE ─────────────────────────────────────
+    // ═══════════════════════════════════════════════════════
+    // RABBIT TEMPLATE
+    // ═══════════════════════════════════════════════════════
     @Bean
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
