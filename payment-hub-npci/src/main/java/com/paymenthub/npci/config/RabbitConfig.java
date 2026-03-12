@@ -1,5 +1,4 @@
 package com.paymenthub.npci.config;
-
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
@@ -23,6 +22,8 @@ public class RabbitConfig {
     }
 
     // ─── Queues ──────────────────────────────────────────────────────────────
+    // NPCI only owns its own input queue and the fraud queue.
+    // ms1.reply.queue / ms1.response.queue are owned by MS1 — not declared here.
 
     @Bean
     public Queue npciQueue() {
@@ -32,11 +33,6 @@ public class RabbitConfig {
     @Bean
     public Queue fraudResponseQueue() {
         return QueueBuilder.durable("fraud.response.queue").build();
-    }
-
-    @Bean
-    public Queue replyQueue() {
-        return QueueBuilder.durable("ms1.reply.queue").build();
     }
 
     // ─── Converter ───────────────────────────────────────────────────────────
@@ -56,13 +52,15 @@ public class RabbitConfig {
     }
 
     // ─── Bindings ────────────────────────────────────────────────────────────
+    // NPCI only binds queues it consumes from.
+    // It PUBLISHES to ms1.response.key but does NOT own or bind that queue.
 
     @Bean
     public Binding npciBinding(Queue npciQueue, DirectExchange paymentHubExchange) {
         return BindingBuilder
                 .bind(npciQueue)
                 .to(paymentHubExchange)
-                .with("transform.npci");             // matches Router's routingKey
+                .with("transform.npci");
     }
 
     @Bean
@@ -70,14 +68,6 @@ public class RabbitConfig {
         return BindingBuilder
                 .bind(fraudResponseQueue)
                 .to(paymentHubExchange)
-                .with("fraud.check");                // matches Router's routingKey
-    }
-
-    @Bean
-    public Binding replyBinding(Queue replyQueue, DirectExchange paymentHubExchange) {
-        return BindingBuilder
-                .bind(replyQueue)
-                .to(paymentHubExchange)
-                .with("ms1.response.key");           // matches ResponseCoordinatorService
+                .with("fraud.check");
     }
 }
