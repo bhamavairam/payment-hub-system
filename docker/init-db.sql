@@ -78,3 +78,29 @@ VALUES
 ('default_rule', 
  'Default: enable fraud and notification', 
  TRUE, TRUE, 999);
+ 
+ -- ═══════════════════════════════════════════════════════
+-- CLIENT ENCRYPTION KEYS TABLE
+-- ═══════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS client_encryption_keys (
+    id SERIAL PRIMARY KEY,
+    client_id VARCHAR(100) UNIQUE NOT NULL,
+    aes_key TEXT NOT NULL,  -- Base64 encoded AES key (stored as-is, simple approach)
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_client_encryption_keys_client_id ON client_encryption_keys(client_id);
+CREATE INDEX idx_client_encryption_keys_is_active ON client_encryption_keys(is_active);
+
+-- ═══════════════════════════════════════════════════════
+-- SAMPLE DATA (Test Clients)
+-- ═══════════════════════════════════════════════════════
+
+INSERT INTO client_encryption_keys (client_id, aes_key, is_active) VALUES
+('BANK001', 'MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=', TRUE),
+('ATM_TERMINAL', 'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=', TRUE),
+('POS_TERMINAL', 'cG9zX3Rlcm1pbmFsX2Flc19rZXlfMTIzNDU2Nzg5MDEy', TRUE)
+ON CONFLICT (client_id) DO NOTHING;

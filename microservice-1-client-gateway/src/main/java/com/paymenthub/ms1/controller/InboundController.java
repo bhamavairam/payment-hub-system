@@ -33,7 +33,7 @@ public class InboundController {
             @RequestHeader(value = "X-Source", defaultValue = "UNKNOWN") String source,
             @RequestHeader(value = "X-Destination", required = false) String destination,
             @RequestBody Map<String, String> request) {
-
+        
         long startTime = System.nanoTime();
 
         log.info("═══════════════════════════════════════════════════════");
@@ -41,98 +41,83 @@ public class InboundController {
         log.info("═══════════════════════════════════════════════════════");
 
         try {
-
-            // STEP 1: Validate Session
+            // STEP 1: VALIDATE SESSION AND GET CLIENT ID
             String clientId = sessionService.validateSession(authorization);
-
-            log.info("🔓 Session validated | clientId={} | source={} | destination={}",
+            log.info("🔓 Session validated | clientId={} | source={} | destination={}", 
                     clientId, source, destination);
 
-            // STEP 2: Validate Payload
+            // STEP 2: VALIDATE REQUEST
             String encryptedPayload = request.get("encryptedPayload");
 
             if (encryptedPayload == null || encryptedPayload.isEmpty()) {
-                return buildErrorResponse("Missing encryptedPayload",
-                        HttpStatus.BAD_REQUEST);
+                return buildErrorResponse("Missing encryptedPayload", HttpStatus.BAD_REQUEST);
             }
 
-            // STEP 3: Process (Waits for final response)
-            TransactionResponse response =
-                    processingService.processInbound(
-                            encryptedPayload, source, destination);
+            // STEP 3: PROCESS TRANSACTION (pass clientId for decryption)
+            TransactionResponse response = processingService.processInbound(
+                    encryptedPayload, source, destination, clientId);  // ← PASS clientId
 
-            long totalTime =
-                    (System.nanoTime() - startTime) / 1_000_000;
+            long totalTime = (System.nanoTime() - startTime) / 1_000_000;
 
             log.info("═══════════════════════════════════════════════════════");
             log.info("✅ FINAL RESPONSE READY - {}ms", totalTime);
-            log.info("Client: {} | Correlation: {}",
-                    clientId, response.getCorrelationId());
-            log.info("Status: {} | Code: {}",
-                    response.getStatus(), response.getResponseCode());
+            log.info("Client: {} | Correlation: {}", clientId, response.getCorrelationId());
+            log.info("Status: {} | Code: {}", response.getStatus(), response.getResponseCode());
             log.info("═══════════════════════════════════════════════════════");
 
-            Map<String, Object> finalResponse = new HashMap<>();
-            finalResponse.put("correlationId", response.getCorrelationId());
-            finalResponse.put("status", response.getStatus());
-            finalResponse.put("responseCode", response.getResponseCode());
-            finalResponse.put("responseMessage", response.getResponseMessage());
-            finalResponse.put("transactionId", response.getTransactionId());
-            finalResponse.put("rrn", response.getRrn());
-            finalResponse.put("approvalCode", response.getApprovalCode());
-            finalResponse.put("balance", response.getBalance());
-            finalResponse.put("processingTime", totalTime + "ms");
+            // Build response
+            Map<String, Object> apiResponse = new HashMap<>();
+            apiResponse.put("correlationId", response.getCorrelationId());
+            apiResponse.put("transactionId", response.getTransactionId());
+            apiResponse.put("status", response.getStatus());
+            apiResponse.put("responseCode", response.getResponseCode());
+            apiResponse.put("responseMessage", response.getResponseMessage());
+            apiResponse.put("rrn", response.getRrn());
+            apiResponse.put("approvalCode", response.getApprovalCode());
+            apiResponse.put("balance", response.getBalance());
+            apiResponse.put("processingTime", totalTime + "ms");
 
-            return ResponseEntity.ok(finalResponse);
+            return ResponseEntity.ok(apiResponse);
 
         } catch (RuntimeException e) {
-
             if (e.getMessage() != null &&
-                    (e.getMessage().contains("session")
-                            || e.getMessage().contains("Authorization"))) {
-
-                log.error("❌ AUTHENTICATION FAILED", e);
-
-                Map<String, Object> error = new HashMap<>();
-                error.put("status", "UNAUTHORIZED");
-                error.put("message", e.getMessage());
-                error.put("timestamp", System.currentTimeMillis());
-
-                return ResponseEntity
-                        .status(HttpStatus.UNAUTHORIZED)
-                        .body(error);
+               (e.getMessage().contains("session") ||
+                e.getMessage().contains("Authorization"))) {
+                
+                long totalTime = (System.nanoTime() - startTime) / 1_000_000;
+                log.error("❌ AUTHENTICATION FAILED - {}ms: {}", totalTime, e.getMessage());
+                
+                return buildErrorResponse(e.getMessage(), HttpStatus.UNAUTHORIZED);
             }
 
-            log.error("❌ TRANSACTION FAILED", e);
-
-            return buildErrorResponse(
-                    "Transaction failed: " + e.getMessage(),
+            long totalTime = (System.nanoTime() - startTime) / 1_000_000;
+            log.error("❌ TRANSACTION FAILED - {}ms", totalTime, e);
+            
+            return buildErrorResponse("Transaction failed: " + e.getMessage(), 
                     HttpStatus.INTERNAL_SERVER_ERROR);
 
         } catch (Exception e) {
+            long totalTime = (System.nanoTime() - startTime) / 1_000_000;
+            log.error("❌ SYSTEM ERROR - {}ms", totalTime, e);
 
-            log.error("❌ SYSTEM ERROR", e);
-
-            return buildErrorResponse(
-                    "System error",
-                    HttpStatus.INTERNAL_SERVER_ERROR);
+            return buildErrorResponse("System error", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    /**
-     * Test endpoint - encrypt plain JSON
-     */
     @PostMapping("/test-encrypt")
     public ResponseEntity<Map<String, String>> testEncrypt(
+            @RequestHeader("Authorization") String authorization,
             @RequestBody Object plainRequest) {
-
         try {
+            // Validate session and get clientId
+            String clientId = sessionService.validateSession(authorization);
+            log.info("🔐 Test encrypt request | clientId={}", clientId);
 
             String plainJson = new com.fasterxml.jackson.databind.ObjectMapper()
                     .writeValueAsString(plainRequest);
-
-            String encrypted =
-                    decryptionService.encrypt(plainJson);
+            
+            // Encrypt using client-specific key
+            String encrypted = decryptionService.encrypt(plainJson, clientId);  // ← PASS clientId
 
             Map<String, String> response = new HashMap<>();
             response.put("status", "SUCCESS");
@@ -141,15 +126,19 @@ public class InboundController {
 
             return ResponseEntity.ok(response);
 
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().contains("session")) {
+                Map<String, String> error = new HashMap<>();
+                error.put("status", "UNAUTHORIZED");
+                error.put("message", e.getMessage());
+                return ResponseEntity.status(401).body(error);
+            }
+            throw e;
         } catch (Exception e) {
-
             Map<String, String> error = new HashMap<>();
             error.put("status", "ERROR");
             error.put("message", e.getMessage());
-
-            return ResponseEntity
-                    .internalServerError()
-                    .body(error);
+            return ResponseEntity.internalServerError().body(error);
         }
     }
 

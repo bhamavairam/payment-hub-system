@@ -50,12 +50,12 @@ public class InboundProcessingService {
      */
     public TransactionResponse processInbound(String encryptedPayload,
                                               String source,
-                                              String destination) throws Exception {
+                                              String destination,String clientId) throws Exception {
 
         long totalStart = System.nanoTime();
 
         // STEP 1: Decrypt
-        String plainPayload = decryptionService.decrypt(encryptedPayload);
+        String plainPayload = decryptionService.decrypt(encryptedPayload, clientId); 
 
         // STEP 2: Convert to Canonical
         CanonicalMessage message = canonicalConverter.convert(plainPayload);
