@@ -46,10 +46,7 @@ public class RabbitMQConfig {
     // ═══════════════════════════════════════════════════════
     @Bean
     public Queue routerQueue() {
-        return QueueBuilder
-                .durable(routerQueue)
-                .withArgument("x-message-ttl", 30000)
-                .build();
+    	return QueueBuilder.durable(routerQueue).build();
     }
 
     @Bean
